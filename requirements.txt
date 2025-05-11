@@ -1,9 +1,9 @@
 langchain>=0.0.267
-openai>=0.27.8
+openai>=1.0.0
 faiss-cpu>=1.7.4
 pandas>=1.5.3
-pypdf>=3.15.1
-beautifulsoup4>=4.12.2
+numpy>=1.23.5
 requests>=2.31.0
 python-dotenv>=1.0.0
+beautifulsoup4>=4.12.2
 streamlit>=1.25.0

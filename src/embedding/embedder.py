@@ -3,7 +3,7 @@ import logging
 from typing import List, Dict, Any, Optional, Union
 import numpy as np
 import pandas as pd
-import openai
+from openai import OpenAI
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -26,12 +26,13 @@ class Embedder:
         """
         self.model_name = model_name
 
-        # Set up OpenAI API key
+        # Set up OpenAI client
         openai_api_key = os.getenv("OPENAI_API_KEY")
         if not openai_api_key:
             logger.warning("OpenAI API key not found. Embeddings will not work without it.")
+            self.client = None
         else:
-            openai.api_key = openai_api_key
+            self.client = OpenAI(api_key=openai_api_key)
 
     def _create_dog_profile_text(self, dog_data: Dict[str, Any]) -> str:
         """
@@ -100,17 +101,21 @@ class Embedder:
         Returns:
             Embedding vector as a list of floats
         """
+        if not self.client:
+            logger.error("OpenAI client not initialized. Check API key.")
+            # Return a zero vector as fallback (not ideal but prevents crashes)
+            return [0.0] * 1536  # Default size for OpenAI embeddings
+
         try:
-            response = openai.Embedding.create(
+            response = self.client.embeddings.create(
                 input=text,
                 model=self.model_name
             )
-            embedding = response['data'][0]['embedding']
+            embedding = response.data[0].embedding
             return embedding
         except Exception as e:
             logger.error(f"Error getting embedding: {e}")
             # Return a zero vector as fallback (not ideal but prevents crashes)
-            # This should be handled better in production
             return [0.0] * 1536  # Default size for OpenAI embeddings
 
     def get_embeddings(self, texts: List[str]) -> List[List[float]]:
@@ -123,6 +128,11 @@ class Embedder:
         Returns:
             List of embedding vectors
         """
+        if not self.client:
+            logger.error("OpenAI client not initialized. Check API key.")
+            # Return zero vectors as fallback
+            return [[0.0] * 1536 for _ in texts]  # Default size for OpenAI embeddings
+
         embeddings = []
 
         # Process in batches to avoid rate limits
@@ -130,11 +140,11 @@ class Embedder:
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
             try:
-                response = openai.Embedding.create(
+                response = self.client.embeddings.create(
                     input=batch,
                     model=self.model_name
                 )
-                batch_embeddings = [data['embedding'] for data in response['data']]
+                batch_embeddings = [data.embedding for data in response.data]
                 embeddings.extend(batch_embeddings)
 
                 # Log progress for large batches
